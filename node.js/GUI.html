@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+  <head>
+	<script src="/json.js"></script> <!-- for ie -->
+   	<script src="/socket.io/socket.io.js"></script>
+    <title>Google Maps JavaScript API v3 Example: Map Simple</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      html, body, #map_canvas {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+    <script>
+      var map;
+		var poly;
+      function initialize() {
+        var mapOptions = {
+          zoom: 16,
+          center: new google.maps.LatLng(39.487, -87.327),
+          mapTypeId: google.maps.MapTypeId.ROADMAP
+        };
+        map = new google.maps.Map(document.getElementById('map_canvas'),
+            mapOptions);
+
+		var polyOptions = {
+          strokeColor: '#000000',
+          strokeOpacity: 1.0,
+          strokeWeight: 3
+        }
+        poly = new google.maps.Polyline(polyOptions);
+        poly.setMap(map);
+      google.maps.event.addListener(map, 'click', addLatLng);
+      }
+
+      /**
+       * Handles click events on a map, and adds a new point to the Polyline.
+       * @param {MouseEvent} mouseEvent
+       */
+      function addLatLng(event) {
+
+        var path = poly.getPath();
+
+        // Because path is an MVCArray, we can simply append a new coordinate
+        // and it will automatically appear
+        path.push(event.latLng);
+
+        // Add a new marker at the new plotted point on the polyline.
+        var marker = new google.maps.Marker({
+          position: event.latLng,
+          map: map
+        });
+		sendCoords(event.latLng + "");
+      }
+
+      google.maps.event.addDomListener(window, 'load', initialize);
+    </script>
+	
+  </head>
+  <body>
+    
+
+	<script>
+       
+    var socket;
+    var firstconnect = true;
+	connect();
+       
+    function connect() {
+      if(firstconnect) {
+        socket = io.connect(null);
+         
+        socket.on('message', function(data){ message(data); });
+		socket.on('instruction', function(inst){ message(data); });
+		socket.on('sendCoords', function(coords){ coordinate(coords); });
+		socket.on('doneCoords', function(coords){ message(data); });
+        socket.on('connect', function(){ status_update("Connected to Server"); });
+        socket.on('disconnect', function(){ status_update("Disconnected from Server"); });
+        socket.on('reconnect', function(){ status_update("Reconnected to Server"); });
+        socket.on('reconnecting', function( nextRetry ){ status_update("Reconnecting in "
+          + nextRetry + " seconds"); });
+        socket.on('reconnect_failed', function(){ message("Reconnect Failed"); });
+         
+        firstconnect = false;
+      }
+      else {
+        socket.socket.reconnect();
+      }
+    }
+       
+    function disconnect() {
+      socket.disconnect();
+    }
+       
+    function message(data) {
+      document.getElementById('message').innerHTML = "Server says: " + data;
+    }
+	
+	function sendCoords(coords) { 
+		socket.emit("coordinate", coords);
+	}
+       
+    function status_update(txt){
+      document.getElementById('status').innerHTML = txt;
+    }
+     
+    function esc(msg){
+      return msg.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+	
+	function doneCoords(){
+		socket.emit("doneCoords");
+	}
+   
+    function send() {
+      socket.send("Hello Server!");    
+    };     
+   
+     
+    </script>
+    <div><p id="status">Waiting for input</p></div>
+    <div><p id="message"></p></div>  
+    <button id="done" onClick='doneCoords()'/>done</button>
+	<div id="map_canvas"></div>
+  </body>
+	
+</html>
+
