@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+  <head>
+    <title>TestTestTest</title>
+
+<!-- Below appears to be Node.js Boilerplate-->
+    <script src="/json.js"></script> <!-- for ie -->
+<!-- https://developers.google.com/chart/interactive/docs/gallery/linechart-->
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="layout.css" rel="stylesheet" type="text/css">
+    <script src="jquery.js"></script>
+    <script src="jquery.flot.js"></script>
+    <script src="jquery.flot.navigate.js"></script>
+
+
+
+
+
+  </head>
+  <body>
+    <h1>TestTestTest </h1>
+    
+    <button id="connect" onClick='connect()'/>Connect</button>
+    <button id="disconnect" onClick='disconnect()'>Disconnect</button>
+    <span style="position:relative; left:150px">
+    SPIChannel: <input id="SPIChan" type="text" value="" style="text-align: right; width:2em">
+    GPMCChannel: <input id="GPMCChan" type="text" value="" style="text-align: right; width:2em">
+    I2CChannel: <input id="i2CChan" type="text" value="" style="text-align: right; width:3em">
+    </span>
+<!--    <button id="send" onClick='send()'/>Send Message</button> -->
+    <div id="chart_div" style="width: 900px; height: 500px;"></div>
+
+
+
+<p>
+
+TestTestTest.
+</p>
+    
+<br/>
+
+
+
+<script type="text/javascript">
+      google.load("visualization", "1", {packages:["corechart"]});
+      google.setOnLoadCallback(drawChart);
+
+function drawChart() {
+
+var loldata = google.visualization.arrayToDataTable([
+['time', 'sample', 'sample2'],
+[0,1,2],
+[1,3,4],
+[2,5,6],
+[3,7,2],
+[4,2,5],
+[5,7,3],
+[6,5,3],
+[7,2,4],
+[8,6,3]
+]);
+
+var options = {
+ title: 'test data'
+};
+
+        var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+        chart.draw(loldata, options);
+
+}
+
+
+
+var socket;
+var firstconnect = true,
+plot,
+samples = 100,
+SPIData = [], SPICount,
+GPMCData = [], GPMCCount,
+I2CData = [], I2CCount;
+
+SPIData[samples] = 0;
+GPMCData[samples] = 0;
+I2CData[samples] = 0;
+
+
+
+
+//plot.setData(loldata);
+//plot.draw(); 
+
+function connect() {
+      if(firstconnect) {
+        socket = io.connect(null);
+
+        socket.on('message', function(data)
+            { status_update("Received: message");});
+        socket.on('connect', function()
+            { status_update("Connected to Server"); });
+        socket.on('disconnect', function()
+            { status_update("Disconnected from Server"); });
+        socket.on('reconnect', function()
+            { status_update("Reconnected to Server"); });
+        socket.on('reconnecting', function( nextRetry )
+            { status_update("Reconnecting in " + nextRetry/1000 + " s"); });
+        socket.on('reconnect_failed', function()
+            { message("Reconnect Failed"); });
+
+        socket.on('SPI',  SPI);
+        socket.on('GPMC', GPMC);
+        socket.on('I2C',  I2C);
+
+        firstconnect = false;
+      }
+      else {
+        socket.socket.reconnect();
+      }
+    }
+
+    function disconnect() {
+      socket.disconnect();
+    }
+
+/*
+    var options = {
+        series: { 
+            shadowSize: 0, // drawing is faster without shadows
+            points: { show: false},
+            lines:  { show: true, lineWidth: 5},
+        }, 
+        yaxis:	{ min: 10, max: 35, 
+                  zoomRange: [10, 256], panRange: [-128, 128] },
+        xaxis:	{ show: true, 
+                  zoomRange: [10, 100], panRange: [0, 100] },
+        legend:	{ position: "sw" },
+        zoom:	{ interactive: true, amount: 1.1 },
+        pan:	{ interactive: true }
+    };
+    plot = $.plot($("#plot"), 
+        [ 
+          { data:  loldata, 
+            label: "test" }
+        ],
+            options);*/
+
+
+</script>
+
+</body>
+</html>
+

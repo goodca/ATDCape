@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+  <head>
+    <title>MultiChannel A/D Cape</title>
+
+    <script src="/json.js"></script> <!-- for ie -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <link href="layout.css" rel="stylesheet" type="text/css">
+    <script src="jquery.js"></script>
+    <script src="jquery.flot.js"></script>
+    <script src="jquery.flot.navigate.js"></script>
+  </head>
+  <body>
+    <h1>MultiChannel A/D Cape <a href="http://Rose-Hulman.edu" target="_blank">
+        <img src="RoseLogo96.png" width=200 style="float:right"></a></h1>
+    <button id="connect" onClick='connect()'/>Connect</button>
+    <button id="disconnect" onClick='disconnect()'>Disconnect</button>
+    <span style="position:relative; left:150px">
+    SPI: <input id="SPINum" type="text" value="" style="text-align: right; width:2em">
+    GPMC: <input id="GPMCNum" type="text" value="" style="text-align: right; width:2em">
+    i2c: <input id="i2cNum" type="text" value="" style="text-align: right; width:3em">
+    </span>
+<!--    <button id="send" onClick='send()'/>Send Message</button> -->
+<table>
+<tr>
+    <td><div id="plotTop" style="width:550px;height:300px;"></div>
+<center>samples</center></td>
+<td>
+    Update: <input id="updateTopInterval" type="text" value="" style="text-align: right; width:3em"> ms
+    <button id="zoomout" onClick='plotTop.zoomOut()'>Zoom Out</button>
+</td>
+</tr>
+<tr>
+    <td><div id="plotBot" style="width:550px;height:300px;"></div>
+<center>samples</center></td>
+<td>
+    Update: <input id="updateBotInterval" type="text" value="" style="text-align: right; width:3em"> ms
+    <button id="zoomout" onClick='plotBot.zoomOut()'>Zoom Out</button>
+</td>
+</tr>
+</table>
+<!--<button id="led0" onClick='led(0)'/>LED 0</button>
+<button id="led1" onClick='led(1)'/>LED 1</button>
+<button id="led2" onClick='led(2)'/>LED 2</button>
+<button id="led3" onClick='led(3)'/>LED 3</button> -->
+<p>
+
+<b>Test interface for MultiChannel A/D Cape.</b>
+Descriptions and whatnot go here.
+</p>
+    <a href="http://beagleboard.org" target="_blank">
+        <img src="beagle-hd-logo.gif" width=200 align="right"></a>
+    <div><p id="status">Waiting for input</p></div>
+    <a href="http://www.ti.com/sitara" target="_blank">
+        <img src="hdr_ti_logo.gif" width=200 align="right"></a>
+    <div><p id="message">message</p></div> 
+
+<br/>
+
+    <script>
+
+    var socket;
+    var firstconnect = true,
+        fs = 8000,
+        Ts = 1/fs*1000,
+        samples = 100,
+        plotTop,
+        plotBot,
+        SPIData = [],  SPIcount = 0, 
+        GPMCData = [], GPMCcount = 0,
+        i2cData = [],  i2ccount = 0,
+        GPMCNum = 0,
+        SPINum  = 0,
+        i2cNum  = 0;
+    SPIData[samples] = 0;
+    GPMCData[samples] = 0;
+    i2cData[samples] = 0;
+
+    function connect() {
+      if(firstconnect) {
+        socket = io.connect(null);
+
+        socket.on('message', function(data)
+            { status_update("Received: message");});
+        socket.on('connect', function()
+            { status_update("Connected to Server"); });
+        socket.on('disconnect', function()
+            { status_update("Disconnected from Server"); });
+        socket.on('reconnect', function()
+            { status_update("Reconnected to Server"); });
+        socket.on('reconnecting', function( nextRetry )
+            { status_update("Reconnecting in " + nextRetry/1000 + " s"); });
+        socket.on('reconnect_failed', function()
+            { message("Reconnect Failed"); });
+
+        socket.on('SPI',  SPI);
+        socket.on('GPMC', GPMC);
+        socket.on('i2c',  i2c);
+
+        firstconnect = false;
+      }
+      else {
+        socket.socket.reconnect();
+      }
+    }
+
+    function disconnect() {
+      socket.disconnect();
+    }
+
+   /* function led(ledNum) {
+      socket.emit('led', ledNum);
+    } */ 
+
+    // When new data arrived, convert it and plot it.
+    function SPI(data) {
+        data = atob(data)/4096 * 1.8; //this is some kind of conversion factor I think
+        data = isNaN(data) ? 0 : data;
+//        status_update("ain: " + data);
+        SPiData[SPIcount] = [SPIcount, data];
+        SPIcount++;
+        if(SPIcount >= samples) {
+            SPIcount = 0;
+            SPiData = [];
+        }
+        plotTop.setData([ SPIData, GPMCData ]);
+        plotTop.draw();
+    }
+
+    function GPMC(data) {
+        data = atob(data);
+//        status_update("gpio: " + data);
+        GPMCData[GPMCcount] = [GPMCcount, data];
+        GPMCcount++;
+        if(GPMCcount >= samples) {
+            GPMCcount = 0;
+            GPMCData = [];
+        }
+        plotTop.setData([ SPIData, GPMCData ]);
+        plotTop.draw();
+    }
+//gyroX: -00026 gyroY: -00012 gyroZ: 000073 gyroTemp: 002602
+
+    function i2c(data) {
+        data = parseInt(data.substring(6,12)); //those numbers probably aren't right
+
+        i2cData[i2ccount] = [i2ccount, Xdata];
+        i2ccount++;
+        if(i2ccount >= samples) {
+            i2ccount = 0;
+            i2cData = [];
+        }
+
+        plotBot.setData([ i2cXData]);
+        plotBot.draw();
+       // plotTop.setData([ i2cTData ]);
+        //plotTop.draw();
+    }
+
+    function status_update(txt){
+      document.getElementById('status').innerHTML = txt;
+    }
+
+    function send(){
+      socket.emit("SPI", "Hello Server!");    
+    };
+
+    connect();
+
+$(function () {
+
+    function initPlotData() {
+        // zip the generated y values with the x values
+        var result = [];
+        for (var i = 0; i <= samples; i++)
+            result[i] = [i, 0];
+        return result;
+    }
+
+    // setup control widget
+    $("#SPINum").val(SPINum).change(function () {
+        SPINum = $(this).val();
+    });
+
+    $("#GPMCNum").val(GPMCNum).change(function () {
+        GPMCNum = $(this).val();
+    });
+
+    $("#i2cNum").val(i2cNum).change(function () {
+        i2cNum = $(this).val();
+    });
+
+    var updateTopInterval = 100;
+    $("#updateTopInterval").val(updateTopInterval).change(function () {
+        var v = $(this).val();
+        if (v && !isNaN(+v)) {
+            updateTopInterval = +v;
+            if (updateTopInterval < 25)
+                updateTopInterval = 25;
+            if (updateTopInterval > 2000)
+                updateTopInterval = 2000;
+            $(this).val("" + updateTopInterval);
+        }
+    });
+
+    var updateBotInterval = 100;
+    $("#updateBotInterval").val(updateBotInterval).change(function () {
+        var v = $(this).val();
+        if (v && !isNaN(+v)) {
+            updateBotInterval = +v;
+            if (updateBotInterval < 25)
+                updateBotInterval = 25;
+            if (updateBotInterval > 2000)
+                updateBotInterval = 2000;
+            $(this).val("" + updateBotInterval);
+        }
+    });
+
+    // setup plot
+    var optionsTop = {
+        series: { 
+            shadowSize: 0, // drawing is faster without shadows
+            points: { show: false},
+            lines:  { show: true, lineWidth: 5},
+        }, 
+        yaxis:	{ min: 10, max: 35, 
+                  zoomRange: [10, 256], panRange: [-128, 128] },
+        xaxis:	{ show: true, 
+                  zoomRange: [10, 100], panRange: [0, 100] },
+        legend:	{ position: "sw" },
+        zoom:	{ interactive: true, amount: 1.1 },
+        pan:	{ interactive: true }
+    };
+    plotTop = $.plot($("#plotTop"), 
+        [ 
+          { data:  initPlotData(), 
+            label: "GyroTemp" }
+        ],
+            optionsTop);
+
+    var optionsBot = {
+        series: { 
+            shadowSize: 0, // drawing is faster without shadows
+            points: { show: false},
+            lines:  { show: true, lineWidth: 5},
+            //color: 2
+        }, 
+        yaxis:	{ min: -100, max: 100, 
+                  zoomRange: [10, 256], panRange: [60, 100] },
+        xaxis:	{ show: true, 
+                  zoomRange: [10, 100], panRange: [0, 100] },
+        legend:	{ position: "sw" },
+        zoom:	{ interactive: true, amount: 1.1 },
+        pan:	{ interactive: true }
+    };
+    plotBot = $.plot($("#plotBot"), 
+        [ 
+          { data:  initPlotData(),
+            label: "GyroX"},
+          { data:  initPlotData(),
+            label: "GyroY"},
+          { data:  initPlotData(),
+            label: "GyroZ"}
+        ],
+            optionsBot);
+
+    // Request data every updateInterval ms
+    function updateTop() {
+        socket.emit("SPI",  SPINum);
+        socket.emit("GPMC", GPMCNum);
+        setTimeout(updateTop, updateTopInterval);
+    }
+    //updateTop();
+
+    function updateBot() {
+        socket.emit("i2c",  i2cNum);
+        setTimeout(updateBot, updateBotInterval);
+    }
+    //updateBot();
+});
+</script>
+
+  </body>
+</html>
